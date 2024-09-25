@@ -8,19 +8,22 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Data.SqlClient;
 using System.Windows.Forms.VisualStyles;
+using System.Net.NetworkInformation;
 
 namespace meow11
 {
+  
     public partial class OperationsForm : Form
     {
         private SqlConnection connection;
         private SqlDataAdapter adapter;
         private DataTable table;
-        public OperationsForm()
+        private string roleName;
+        public OperationsForm(string roleName)
         {
             InitializeComponent();
+            this.roleName = roleName;
             connection = new SqlConnection("Data Source=localhost;Initial Catalog=Pizdets;Integrated Security=True;Encrypt=False");
             connection.Open();
 
@@ -52,6 +55,40 @@ namespace meow11
             comboBoxClient.DataSource = tableClients;
             comboBoxClient.DisplayMember = "FirstName";
             comboBoxClient.ValueMember = "ClientID";
+            comboBoxStatus.Items.Add("Новая");
+            comboBoxStatus.Items.Add("В процессе");
+            comboBoxStatus.Items.Add("Погашена");
+            comboBoxStatus.SelectedIndex = 0;
+
+            // Заполнить comboBox для поиска по клиенту
+            SqlDataAdapter adapterSearchClients = new SqlDataAdapter("SELECT ClientID, FirstName, LastName FROM Clients", connection);
+            DataTable tableSearchClients = new DataTable();
+            adapterSearchClients.Fill(tableSearchClients);
+            comboBoxSearchClient.DataSource = tableSearchClients;
+            comboBoxSearchClient.DisplayMember = "FirstName";
+            comboBoxSearchClient.ValueMember = "ClientID";
+
+            // Заполнить comboBox для поиска по сотруднику
+            SqlDataAdapter adapterSearchEmployees = new SqlDataAdapter("SELECT EmployeeID, FirstName, LastName FROM Employees", connection);
+            DataTable tableSearchEmployees = new DataTable();
+            adapterSearchEmployees.Fill(tableSearchEmployees);
+            comboBoxSearchEmployee.DataSource = tableSearchEmployees;
+            comboBoxSearchEmployee.DisplayMember = "FirstName";
+            comboBoxSearchEmployee.ValueMember = "EmployeeID";
+
+            // Заполнить comboBox для поиска по предмету
+            SqlDataAdapter adapterSearchItems = new SqlDataAdapter("SELECT ItemID, ItemType, ItemDescription FROM Items", connection);
+            DataTable tableSearchItems = new DataTable();
+            adapterSearchItems.Fill(tableSearchItems);
+            comboBoxSearchItem.DataSource = tableSearchItems;
+            comboBoxSearchItem.DisplayMember = "ItemType";
+            comboBoxSearchItem.ValueMember = "ItemID";
+
+            // Заполнить comboBox для поиска по статусу операции
+            comboBoxSearchStatus.Items.Add("Новая");
+            comboBoxSearchStatus.Items.Add("В процессе");
+            comboBoxSearchStatus.Items.Add("Погашена");
+            comboBoxSearchStatus.SelectedIndex = 0;
         }
 
         private void OperationsForm_Load(object sender, EventArgs e)
@@ -67,7 +104,7 @@ namespace meow11
             command.Parameters.AddWithValue("@EmployeeID", comboBoxEmployee.SelectedValue);
             command.Parameters.AddWithValue("@ItemID", comboBoxItem.SelectedValue);
             command.Parameters.AddWithValue("@OperationDate", DateTime.Now);
-            command.Parameters.AddWithValue("@OperationStatus", textBoxStatus.Text);
+            command.Parameters.AddWithValue("@OperationStatus", comboBoxStatus.SelectedItem.ToString());
             command.Parameters.AddWithValue("@OperationID", dataGridViewOperations.SelectedRows[0].Cells["OperationID"].Value);
             command.ExecuteNonQuery();
 
@@ -104,6 +141,8 @@ namespace meow11
             table.Clear();
             adapter.Fill(table);
             dataGridViewOperations.DataSource = table;
+
+          
         }
 
         private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
@@ -113,9 +152,35 @@ namespace meow11
 
         private void button1_Click(object sender, EventArgs e)
         {
-            Form1 form1 = new Form1();
+            Form1 form1 = new Form1(roleName);
             form1.Show();
             this.Close();
+        }
+
+        private void label4_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label2_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void buttonSearch_Click(object sender, EventArgs e)
+        {
+            string query = "SELECT * FROM Operations WHERE (ClientID = @ClientID OR @ClientID IS NULL) AND (EmployeeID = @EmployeeID OR @EmployeeID IS NULL) AND (ItemID = @ItemID OR @ItemID IS NULL) AND (OperationStatus = @OperationStatus OR @OperationStatus IS NULL)";
+            SqlCommand command = new SqlCommand(query, connection);
+            command.Parameters.AddWithValue("@ClientID", comboBoxSearchClient.SelectedValue == null ? (object)DBNull.Value : comboBoxSearchClient.SelectedValue);
+            command.Parameters.AddWithValue("@EmployeeID", comboBoxSearchEmployee.SelectedValue == null ? (object)DBNull.Value : comboBoxSearchEmployee.SelectedValue);
+            command.Parameters.AddWithValue("@ItemID", comboBoxSearchItem.SelectedValue == null ? (object)DBNull.Value : comboBoxSearchItem.SelectedValue);
+            command.Parameters.AddWithValue("@OperationStatus", comboBoxSearchStatus.SelectedItem == null ? (object)DBNull.Value : comboBoxSearchStatus.SelectedItem.ToString());
+            SqlDataReader reader = command.ExecuteReader();
+
+            DataTable tableSearch = new DataTable();
+            tableSearch.Load(reader);
+
+            dataGridViewOperations.DataSource = tableSearch;
         }
     }
 }
